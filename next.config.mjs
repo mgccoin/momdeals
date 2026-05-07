@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Build a self-contained server bundle for Docker / Fly.io
+  output: 'standalone',
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'm.media-amazon.com' },
