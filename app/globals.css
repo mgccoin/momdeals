@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-cream text-plum-700 font-sans;
+  }
+  h1, h2, h3, h4, h5 {
+    @apply font-display tracking-tight;
+  }
+  ::selection {
+    @apply bg-coral-200 text-plum-800;
+  }
+}
+
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-site px-4 sm:px-6;
+  }
+  .btn-coral {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-coral-500 px-5 py-2.5 text-sm font-semibold text-white shadow-card transition hover:bg-coral-600 hover:shadow-cardHover focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300 focus-visible:ring-offset-2;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-plum-100 bg-white px-5 py-2.5 text-sm font-semibold text-plum-700 transition hover:border-plum-200 hover:bg-plum-50;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide;
+  }
+}
+
+/* Long-form post body */
+.prose-mom {
+  @apply text-[17px] leading-[1.8] text-plum-700;
+}
+.prose-mom h2 { @apply mt-10 mb-3 text-2xl font-bold text-plum-800; }
+.prose-mom h3 { @apply mt-8 mb-2 text-xl font-bold text-plum-800; }
+.prose-mom p  { @apply mb-5; }
+.prose-mom ul { @apply mb-5 list-disc pl-7; }
+.prose-mom ol { @apply mb-5 list-decimal pl-7; }
+.prose-mom li { @apply mb-1.5; }
+.prose-mom a  { @apply font-semibold text-coral-600 underline-offset-2 hover:underline; }
+.prose-mom strong { @apply text-plum-800; }
+.prose-mom blockquote {
+  @apply my-6 rounded-r-lg border-l-4 border-coral-400 bg-white/70 px-5 py-3 italic text-plum-600;
+}
+.prose-mom img { @apply my-6 rounded-xl; }
