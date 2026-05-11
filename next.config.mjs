@@ -13,6 +13,8 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.amazon.com' },
       { protocol: 'https', hostname: 'replicate.delivery' },
       { protocol: 'https', hostname: '*.cloudflarestorage.com' },
+      { protocol: 'https', hostname: 'i.imgur.com' },
+      { protocol: 'https', hostname: '*.imgur.com' },
     ],
   },
   async redirects() {

@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AdDisclosure } from '@/components/AdDisclosure';
 import { DealBadges } from '@/components/DealBadge';
+import { DealLink } from '@/components/DealLink';
 import { PriceTag } from '@/components/PriceTag';
 import { fetchPost } from '@/lib/api';
-import { REVALIDATE_SECONDS, SITE_NAME } from '@/lib/config';
+import { REVALIDATE_SECONDS, SITE_NAME, SITE_URL } from '@/lib/config';
 import { formatDate, safeTags } from '@/lib/format';
 
 export const revalidate = REVALIDATE_SECONDS;
@@ -17,14 +19,41 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const post = await fetchPost(params.id);
   if (!post) return { title: 'Post not found' };
+
+  const description =
+    post.excerpt || `${post.title} — read the full review on ${SITE_NAME}.`;
+  const url = `${SITE_URL}/post/${params.id}`;
+  const images = post.image_url
+    ? [
+        {
+          url: post.image_url,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ]
+    : undefined;
+  const tags = safeTags(post.tags);
+
   return {
     title: post.title,
-    description: post.excerpt || `${post.title} — read the full review on ${SITE_NAME}.`,
+    description,
+    alternates: { canonical: `/post/${params.id}` },
     openGraph: {
       title: post.title,
-      description: post.excerpt || '',
-      images: post.image_url ? [post.image_url] : [],
+      description,
+      url,
+      siteName: SITE_NAME,
       type: 'article',
+      publishedTime: post.created_at,
+      images,
+      tags,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.title,
+      description,
+      images: post.image_url ? [post.image_url] : undefined,
     },
   };
 }
@@ -35,7 +64,7 @@ export default async function PostPage({ params }: { params: { id: string } }) {
 
   const tags = safeTags(post.tags);
   const product = post.product;
-  const dealHref = product?.asin ? `/go/${product.asin}` : null;
+  const hasDeal = Boolean(product?.asin);
 
   return (
     <article className="pb-16">
@@ -50,6 +79,7 @@ export default async function PostPage({ params }: { params: { id: string } }) {
           <time>{formatDate(post.created_at)}</time>
           {post.blog_name && <> · in {post.blog_name}</>}
         </p>
+        <AdDisclosure variant="full" className="mt-5 text-left" />
       </header>
 
       {post.image_url && (
@@ -95,10 +125,15 @@ export default async function PostPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
               <div className="flex items-center md:justify-end">
-                {dealHref && (
-                  <a href={dealHref} className="btn-coral px-6 py-3 text-base" rel="nofollow sponsored noopener">
+                {product?.asin && (
+                  <DealLink
+                    asin={product.asin}
+                    shortLink={product.short_link}
+                    affiliateLink={product.affiliate_link}
+                    className="btn-coral px-6 py-3 text-base"
+                  >
                     Get it on Amazon
-                  </a>
+                  </DealLink>
                 )}
               </div>
             </div>
@@ -111,22 +146,23 @@ export default async function PostPage({ params }: { params: { id: string } }) {
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
 
-      {dealHref && (
+      {hasDeal && product?.asin && (
         <div className="container-site mt-10 max-w-prose">
           <div className="rounded-3xl bg-plum-700 p-7 text-center text-white shadow-card md:p-9">
             <p className="text-xs font-bold uppercase tracking-wider text-coral-300">Ready to grab it?</p>
             <h3 className="mt-2 font-display text-2xl font-bold md:text-3xl">Tap below to open Amazon</h3>
-            <a
-              href={dealHref}
+            <DealLink
+              asin={product.asin}
+              shortLink={product.short_link}
+              affiliateLink={product.affiliate_link}
               className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-coral-500 px-7 py-3.5 text-base font-semibold text-white transition hover:bg-coral-600"
-              rel="nofollow sponsored noopener"
             >
               Get this deal
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M5 12h14" />
                 <path d="m12 5 7 7-7 7" />
               </svg>
-            </a>
+            </DealLink>
             <p className="mt-3 text-xs text-plum-200">
               Affiliate link · {SITE_NAME} earns from qualifying purchases.
             </p>

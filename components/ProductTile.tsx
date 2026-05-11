@@ -1,7 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Product } from '@/lib/types';
+import { AdDisclosure } from './AdDisclosure';
 import { DealBadges } from './DealBadge';
+import { DealLink } from './DealLink';
 import { PriceTag } from './PriceTag';
 
 const FALLBACK_IMG =
@@ -10,7 +12,6 @@ const FALLBACK_IMG =
 export function ProductTile({ product }: { product: Product }) {
   const img = product.image_url || FALLBACK_IMG;
   const detailHref = `/product/${product.asin}`;
-  const dealHref   = product.asin ? `/go/${product.asin}` : null;
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-plum-100 bg-white shadow-card transition hover:shadow-cardHover">
@@ -42,15 +43,21 @@ export function ProductTile({ product }: { product: Product }) {
         </Link>
         <div className="mt-auto space-y-2.5">
           <PriceTag price={product.price} listPrice={product.list_price} />
-          {dealHref && (
-            <a href={dealHref} className="btn-coral w-full text-sm" rel="nofollow sponsored noopener">
+          {product.asin && (
+            <DealLink
+              asin={product.asin}
+              shortLink={product.short_link}
+              affiliateLink={product.affiliate_link}
+              className="btn-coral w-full text-sm"
+            >
               Get this deal
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M5 12h14" />
                 <path d="m12 5 7 7-7 7" />
               </svg>
-            </a>
+            </DealLink>
           )}
+          <AdDisclosure variant="compact" />
         </div>
       </div>
     </article>

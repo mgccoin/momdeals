@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AdDisclosure } from '@/components/AdDisclosure';
 import { DealBadges } from '@/components/DealBadge';
+import { DealLink } from '@/components/DealLink';
 import { PriceTag } from '@/components/PriceTag';
 import { fetchProduct } from '@/lib/api';
 import { REVALIDATE_SECONDS, SITE_URL, SITE_NAME } from '@/lib/config';
@@ -20,17 +22,40 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const product = await fetchProduct(params.asin);
   if (!product) return { title: 'Product not found' };
+
   const price = formatPrice(product.price);
+  const description = `${product.title}${
+    price ? ` — currently ${price}` : ''
+  }. Hand-picked Amazon deal on ${SITE_NAME}.`;
+  const url = `${SITE_URL}/product/${params.asin}`;
+  const images = product.image_url
+    ? [
+        {
+          url: product.image_url,
+          width: 1200,
+          height: 1200,
+          alt: product.title,
+        },
+      ]
+    : undefined;
+
   return {
     title: product.title,
-    description:
-      `${product.title}${price ? ` — currently ${price}` : ''}. Hand-picked Amazon deal on ${SITE_NAME}.`,
+    description,
+    alternates: { canonical: `/product/${params.asin}` },
     openGraph: {
       title: product.title,
-      description: price ? `Now ${price} on Amazon` : 'Hand-picked Amazon deal',
-      images: product.image_url ? [product.image_url] : [],
-      url: `${SITE_URL}/product/${params.asin}`,
+      description,
+      url,
+      siteName: SITE_NAME,
       type: 'website',
+      images,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: product.title,
+      description,
+      images: product.image_url ? [product.image_url] : undefined,
     },
   };
 }
@@ -40,7 +65,6 @@ export default async function ProductPage({ params }: { params: { asin: string }
   if (!product) notFound();
 
   const img = product.image_url || FALLBACK_IMG;
-  const dealHref = `/go/${product.asin}`;
   const post = product.post;
   const off = discountPercent(product.price, product.list_price);
   const priceNum = parsePrice(product.price);
@@ -110,6 +134,8 @@ export default async function ProductPage({ params }: { params: { asin: string }
               {product.title}
             </h1>
 
+            <AdDisclosure variant="full" className="mt-4" />
+
             <div className="mt-5">
               <PriceTag price={product.price} listPrice={product.list_price} size="lg" />
             </div>
@@ -125,19 +151,20 @@ export default async function ProductPage({ params }: { params: { asin: string }
             )}
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a
-                href={dealHref}
+              <DealLink
+                asin={product.asin}
+                shortLink={product.short_link}
+                affiliateLink={product.affiliate_link}
                 className="btn-coral px-7 py-3.5 text-base"
-                rel="nofollow sponsored noopener"
               >
                 Get this deal on Amazon
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M5 12h14" />
                   <path d="m12 5 7 7-7 7" />
                 </svg>
-              </a>
+              </DealLink>
               <span className="text-xs text-plum-400">
-                Affiliate link · price last seen {formatDate(product.updated_at)}
+                Price last seen {formatDate(product.updated_at)}
               </span>
             </div>
 

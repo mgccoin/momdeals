@@ -2,7 +2,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { FeedItem } from '@/lib/types';
 import { formatDate, timeAgo, safeTags } from '@/lib/format';
+import { AdDisclosure } from './AdDisclosure';
 import { DealBadges } from './DealBadge';
+import { DealLink } from './DealLink';
 import { PriceTag } from './PriceTag';
 
 const FALLBACK_IMG =
@@ -20,7 +22,7 @@ export function DealCard({
   const tags = safeTags(item.tags).slice(0, 3);
 
   const postHref = `/post/${item.id}`;
-  const dealHref = asin ? `/go/${asin}` : null;
+  const hasDeal = Boolean(asin);
 
   const PriceBlock = (
     <PriceTag price={item.ap_price ?? item.product_price} listPrice={item.ap_list_price} size={layout === 'feature' ? 'lg' : 'md'} />
@@ -67,13 +69,19 @@ export function DealCard({
             {PriceBlock}
             <div className="flex flex-wrap items-center gap-2">
               <Link href={postHref} className="btn-ghost">Quick view</Link>
-              {dealHref && (
-                <a href={dealHref} className="btn-coral" rel="nofollow sponsored noopener">
+              {hasDeal && (
+                <DealLink
+                  asin={asin}
+                  shortLink={item.ap_short_link}
+                  affiliateLink={item.ap_affiliate_link}
+                  className="btn-coral"
+                >
                   Get this deal
                   <Arrow />
-                </a>
+                </DealLink>
               )}
             </div>
+            <AdDisclosure variant="compact" className="mt-1 md:justify-end" />
           </div>
         </div>
       </article>
@@ -101,12 +109,18 @@ export function DealCard({
           </Link>
           <div className="mt-auto space-y-2.5">
             {PriceBlock}
-            {dealHref && (
-              <a href={dealHref} className="btn-coral w-full text-sm" rel="nofollow sponsored noopener">
+            {hasDeal && (
+              <DealLink
+                asin={asin}
+                shortLink={item.ap_short_link}
+                affiliateLink={item.ap_affiliate_link}
+                className="btn-coral w-full text-sm"
+              >
                 Get this deal
                 <Arrow />
-              </a>
+              </DealLink>
             )}
+            <AdDisclosure variant="compact" />
           </div>
         </div>
       </article>
@@ -152,14 +166,20 @@ export function DealCard({
           <div className="min-w-0">{PriceBlock}</div>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={postHref} className="btn-ghost px-4 py-2 text-xs sm:text-sm">Quick view</Link>
-            {dealHref && (
-              <a href={dealHref} className="btn-coral px-4 py-2 text-xs sm:text-sm" rel="nofollow sponsored noopener">
+            {hasDeal && (
+              <DealLink
+                asin={asin}
+                shortLink={item.ap_short_link}
+                affiliateLink={item.ap_affiliate_link}
+                className="btn-coral px-4 py-2 text-xs sm:text-sm"
+              >
                 Get this deal
                 <Arrow />
-              </a>
+              </DealLink>
             )}
           </div>
         </div>
+        <AdDisclosure variant="compact" className="mt-2" />
       </div>
     </article>
   );
