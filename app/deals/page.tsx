@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DealCard } from '@/components/DealCard';
+import { CategoryNav } from '@/components/CategoryNav';
 import { Pagination } from '@/components/Pagination';
 import { fetchFeed } from '@/lib/api';
 import { REVALIDATE_SECONDS } from '@/lib/config';
@@ -34,6 +35,10 @@ export default async function DealsPage({
           Active discounts and clipped coupons — sorted by deal score, refreshed throughout the day.
         </p>
       </header>
+
+      <div className="mb-8">
+        <CategoryNav />
+      </div>
 
       {!feed && (
         <div className="rounded-3xl border border-coral-200 bg-coral-50/60 px-6 py-8 text-coral-700">

@@ -1,4 +1,5 @@
 import { DealCard } from '@/components/DealCard';
+import { CategoryNav } from '@/components/CategoryNav';
 import { Hero } from '@/components/Hero';
 import { Pagination } from '@/components/Pagination';
 import { fetchFeed } from '@/lib/api';
@@ -36,6 +37,13 @@ export default async function HomePage({
       />
 
       <section className="container-site py-12">
+        <div className="mb-10">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-coral-500">
+            Shop deals by category
+          </p>
+          <CategoryNav />
+        </div>
+
         {!feed && (
           <ApiError />
         )}

@@ -9,6 +9,7 @@ import { PriceTag } from '@/components/PriceTag';
 import { fetchProduct } from '@/lib/api';
 import { REVALIDATE_SECONDS, SITE_URL, SITE_NAME } from '@/lib/config';
 import { discountPercent, formatDate, formatPrice, parsePrice } from '@/lib/format';
+import { postPath } from '@/lib/slug';
 
 export const revalidate = REVALIDATE_SECONDS;
 
@@ -195,7 +196,7 @@ export default async function ProductPage({ params }: { params: { asin: string }
               {post.title}
             </h2>
             <p className="mt-3 line-clamp-3 text-plum-600">{post.excerpt}</p>
-            <Link href={`/post/${post.id}`} className="btn-ghost mt-5">
+            <Link href={postPath(post)} className="btn-ghost mt-5">
               Read the full review
             </Link>
           </section>

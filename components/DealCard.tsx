@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { FeedItem } from '@/lib/types';
 import { formatDate, timeAgo, safeTags } from '@/lib/format';
+import { postPath } from '@/lib/slug';
 import { AdDisclosure } from './AdDisclosure';
 import { DealBadges } from './DealBadge';
 import { DealLink } from './DealLink';
@@ -21,7 +22,7 @@ export function DealCard({
   const asin = item.product_asin || item.ap_asin || '';
   const tags = safeTags(item.tags).slice(0, 3);
 
-  const postHref = `/post/${item.id}`;
+  const postHref = postPath(item);
   const hasDeal = Boolean(asin);
 
   const PriceBlock = (

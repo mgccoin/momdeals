@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { AdDisclosure } from '@/components/AdDisclosure';
 import { DealBadges } from '@/components/DealBadge';
 import { DealLink } from '@/components/DealLink';
 import { PriceTag } from '@/components/PriceTag';
 import { fetchPost } from '@/lib/api';
 import { REVALIDATE_SECONDS, SITE_NAME, SITE_URL } from '@/lib/config';
-import { formatDate, safeTags } from '@/lib/format';
+import { formatDate, parsePrice, safeTags } from '@/lib/format';
+import { extractPostId, postPath } from '@/lib/slug';
 
 export const revalidate = REVALIDATE_SECONDS;
 
@@ -17,12 +18,13 @@ export async function generateMetadata({
 }: {
   params: { id: string };
 }): Promise<Metadata> {
-  const post = await fetchPost(params.id);
+  const post = await fetchPost(extractPostId(params.id));
   if (!post) return { title: 'Post not found' };
 
+  const canonical = postPath(post);
   const description =
     post.excerpt || `${post.title} — read the full review on ${SITE_NAME}.`;
-  const url = `${SITE_URL}/post/${params.id}`;
+  const url = `${SITE_URL}${canonical}`;
   const images = post.image_url
     ? [
         {
@@ -38,7 +40,7 @@ export async function generateMetadata({
   return {
     title: post.title,
     description,
-    alternates: { canonical: `/post/${params.id}` },
+    alternates: { canonical },
     openGraph: {
       title: post.title,
       description,
@@ -59,15 +61,86 @@ export async function generateMetadata({
 }
 
 export default async function PostPage({ params }: { params: { id: string } }) {
-  const post = await fetchPost(params.id);
+  const id = extractPostId(params.id);
+  const post = await fetchPost(id);
   if (!post) notFound();
+
+  // Send any non-canonical URL (bare UUID, wrong/old slug) to the slug URL via 301.
+  const canonical = postPath(post);
+  let requested = params.id;
+  try {
+    requested = decodeURIComponent(params.id);
+  } catch {
+    /* keep raw */
+  }
+  if (`/post/${requested}` !== canonical) {
+    permanentRedirect(canonical);
+  }
 
   const tags = safeTags(post.tags);
   const product = post.product;
   const hasDeal = Boolean(product?.asin);
+  const priceNum = product ? parsePrice(product.price) : null;
+
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.excerpt || undefined,
+    image: post.image_url ? [post.image_url] : undefined,
+    datePublished: post.created_at,
+    dateModified: post.created_at,
+    author: { '@type': 'Organization', name: SITE_NAME },
+    publisher: { '@type': 'Organization', name: SITE_NAME },
+    mainEntityOfPage: `${SITE_URL}${canonical}`,
+  };
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Deals', item: `${SITE_URL}/deals` },
+      { '@type': 'ListItem', position: 3, name: post.title, item: `${SITE_URL}${canonical}` },
+    ],
+  };
+
+  const productSchema =
+    product?.asin && priceNum
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: product.title,
+          image: product.image_url ? [product.image_url] : undefined,
+          sku: product.asin,
+          brand: { '@type': 'Brand', name: 'Amazon' },
+          offers: {
+            '@type': 'Offer',
+            url: `${SITE_URL}/go/${product.asin}`,
+            priceCurrency: 'USD',
+            price: priceNum.toFixed(2),
+            availability: 'https://schema.org/InStock',
+            seller: { '@type': 'Organization', name: 'Amazon.com' },
+          },
+        }
+      : null;
 
   return (
     <article className="pb-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      {productSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+      )}
       <header className="container-site max-w-prose pt-10 text-center md:pt-14">
         <Link href="/" className="text-sm font-semibold text-coral-600 hover:underline">
           ← Back to all deals
