@@ -1,20 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+type JobStatus = 'queued' | 'pulling' | 'linking' | 'generating' | 'posting' | 'done' | 'error';
 
 type LinkResult = {
   input: string;
   asin: string | null;
   resolvedUrl: string | null;
-  deepLink: string | null;
-  affiliateUrl: string | null;
-  appUrl: string | null;
+  status: JobStatus;
+  jobId: string | null;
   urlgeniusLink: string | null;
+  goLink: string | null;
+  affiliateUrl: string | null;
   title: string | null;
   image_url: string | null;
   inCatalog: boolean;
+  willPublish: boolean;
+  post: { id: string; title: string; created_at: string; webhook_status?: string } | null;
+  postReused: boolean;
+  socialStatus: string | null;
   error: string | null;
+  note: string | null;
+  /** Client-only: consecutive poll failures (transient API/gateway errors). */
+  pollFailures?: number;
 };
+
+type ApiJob = {
+  status?: JobStatus;
+  urlgenius_link?: string | null;
+  product?: { title?: string; image_url?: string } | null;
+  post?: LinkResult['post'];
+  post_reused?: boolean;
+  social_status?: string | null;
+  generate_error?: string | null;
+  link_error?: string | null;
+  error?: string | null;
+  note?: string | null;
+};
+
+const STATUS_LABEL: Record<JobStatus, string> = {
+  queued: 'Queued…',
+  pulling: 'Reading the product on Amazon…',
+  linking: 'Creating your Amazon deep link…',
+  generating: 'Writing the post…',
+  posting: 'Posting to Facebook/Instagram…',
+  done: 'Ready',
+  error: 'Failed',
+};
+const SETTLED = new Set<JobStatus>(['done', 'error']);
+const MAX_PUBLISH = 3;
+const POLL_MS = 3000;
+/** Give up polling a row only after this many consecutive transient failures. */
+const MAX_POLL_FAILURES = 8;
 
 /** Clipboard write with a fallback for browsers that block the async API. */
 async function copyText(text: string): Promise<boolean> {
@@ -88,8 +126,36 @@ function LinkRow({ label, value, primary = false }: { label: string; value: stri
   );
 }
 
+function StatusPill({ status }: { status: JobStatus }) {
+  const cls =
+    status === 'done'
+      ? 'bg-sage-100 text-sage-700'
+      : status === 'error'
+        ? 'bg-coral-50 text-coral-700'
+        : 'bg-plum-50 text-plum-600 animate-pulse';
+  return <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${cls}`}>{STATUS_LABEL[status]}</span>;
+}
+
+/** Merge a polled job record into a result row. */
+function mergeJob(r: LinkResult, job: ApiJob): LinkResult {
+  return {
+    ...r,
+    status: job.status || r.status,
+    urlgeniusLink: job.urlgenius_link ?? r.urlgeniusLink,
+    title: job.product?.title || r.title,
+    image_url: job.product?.image_url || r.image_url,
+    inCatalog: r.inCatalog || Boolean(job.product?.title),
+    post: job.post ?? r.post,
+    postReused: Boolean(job.post_reused),
+    socialStatus: job.social_status ?? r.socialStatus,
+    error: job.error || job.link_error || job.generate_error || null,
+    note: job.note ?? r.note,
+  };
+}
+
 export default function LinkGenerator({ adminKey }: { adminKey: string }) {
   const [input, setInput] = useState('');
+  const [publish, setPublish] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<LinkResult[]>([]);
@@ -98,6 +164,67 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean);
+  const publishTooMany = publish && lines.length > MAX_PUBLISH;
+
+  // Poll unfinished background jobs every few seconds until they settle.
+  useEffect(() => {
+    const pending = results.filter((r) => r.jobId && !SETTLED.has(r.status));
+    if (pending.length === 0) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const updates = await Promise.all(
+        pending.map(async (r) => {
+          try {
+            const res = await fetch(
+              `/api/admin/deeplink?key=${encodeURIComponent(adminKey)}&job=${encodeURIComponent(r.jobId as string)}`,
+              { cache: 'no-store' },
+            );
+            const job = (await res.json().catch(() => ({}))) as ApiJob;
+            if (!res.ok) {
+              // Only a missing job or a bad key is final. Gateway/timeout errors
+              // are transient: the API is probably just busy inside Chromium.
+              if (res.status === 404 || res.status === 401) {
+                const msg =
+                  job.error === 'job_not_found'
+                    ? 'Lost track of this job (the API restarted). Run it again.'
+                    : job.error || `API error ${res.status}`;
+                return { jobId: r.jobId, job: { status: 'error' as JobStatus, error: msg } as ApiJob, transient: false };
+              }
+              return { jobId: r.jobId, job: null as ApiJob | null, transient: true };
+            }
+            return { jobId: r.jobId, job, transient: false };
+          } catch {
+            return { jobId: r.jobId, job: null as ApiJob | null, transient: true };
+          }
+        }),
+      );
+      if (cancelled) return;
+      setResults((prev) =>
+        prev.map((r) => {
+          const u = updates.find((x) => x && x.jobId === r.jobId);
+          if (!u) return r;
+          if (u.transient || !u.job) {
+            const failures = (r.pollFailures || 0) + 1;
+            if (failures >= MAX_POLL_FAILURES) {
+              return {
+                ...r,
+                pollFailures: failures,
+                status: 'error' as JobStatus,
+                error:
+                  'Lost contact with the API while this was still running. Refresh in a minute and run it again; it will pick up the finished link.',
+              };
+            }
+            return { ...r, pollFailures: failures };
+          }
+          return mergeJob({ ...r, pollFailures: 0 }, u.job);
+        }),
+      );
+    }, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [results, adminKey]);
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
@@ -106,12 +233,16 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
       setError('Paste at least one Amazon link.');
       return;
     }
+    if (publishTooMany) {
+      setError(`Publishing is limited to ${MAX_PUBLISH} links at a time. Uncheck "publish" or paste fewer links.`);
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch('/api/admin/deeplink', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: adminKey, urls: lines }),
+        body: JSON.stringify({ key: adminKey, urls: lines, publish }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -133,8 +264,9 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
     setError(null);
   }
 
-  const ready = results.filter((r) => r.deepLink);
-  const allDeepLinks = ready.map((r) => r.deepLink).join('\n');
+  const ready = results.filter((r) => r.urlgeniusLink);
+  const inProgress = results.filter((r) => !SETTLED.has(r.status)).length;
+  const allDeepLinks = ready.map((r) => r.urlgeniusLink).join('\n');
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
@@ -142,9 +274,9 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
       <div className="min-w-0 rounded-3xl border border-plum-100 bg-white p-6 shadow-card">
         <h2 className="font-display text-xl font-bold text-plum-800">Paste Amazon links</h2>
         <p className="mt-1 text-sm text-plum-500">
-          One per line. Works with any Amazon product URL, amzn.to / a.co short links, or a bare ASIN. Each
-          becomes a <span className="font-mono">momdeals.org/go/…</span> deep link that opens the Amazon app on
-          phones and always carries your affiliate tag.
+          One per line. Works with any Amazon product URL, amzn.to / a.co short links, URLgenius links, or a bare
+          ASIN. Each becomes the product&apos;s Amazon deep link, which opens the Amazon app on phones with your
+          tag. If the product doesn&apos;t have one yet, it&apos;s created for you (takes up to a minute).
         </p>
         <form onSubmit={handleGenerate} className="mt-5 space-y-4">
           <div>
@@ -158,9 +290,30 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
               className="mt-1.5 w-full rounded-2xl border border-plum-200 px-4 py-3 font-mono text-sm text-plum-800 outline-none focus:border-coral-400"
             />
           </div>
+
+          <label className="flex items-start gap-2.5 rounded-2xl border border-plum-100 bg-plum-50/40 px-4 py-3 text-sm text-plum-700">
+            <input
+              type="checkbox"
+              checked={publish}
+              onChange={(e) => setPublish(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-plum-300 text-coral-500"
+            />
+            <span>
+              <span className="font-semibold">Also publish as a post on the site + Facebook/Instagram</span>
+              <span className="mt-0.5 block text-xs text-plum-500">
+                Adds the product to the site, writes a post about it now, and sends it to social through your Zap.
+                Up to {MAX_PUBLISH} links per run. If the product already has a post, that post is reused instead
+                of writing a duplicate.
+              </span>
+            </span>
+          </label>
+
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-plum-400">
               {lines.length} link{lines.length === 1 ? '' : 's'}
+              {publishTooMany ? (
+                <span className="ml-2 text-coral-600">· publishing allows {MAX_PUBLISH} at a time</span>
+              ) : null}
             </span>
             <div className="flex gap-2">
               {input ? (
@@ -174,10 +327,10 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
               ) : null}
               <button
                 type="submit"
-                disabled={busy || lines.length === 0}
+                disabled={busy || lines.length === 0 || publishTooMany}
                 className="btn-coral px-5 py-2.5 disabled:opacity-60"
               >
-                {busy ? 'Generating…' : 'Generate deep links'}
+                {busy ? 'Starting…' : publish ? 'Generate & publish' : 'Generate deep links'}
               </button>
             </div>
           </div>
@@ -191,7 +344,9 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
           <div>
             <h2 className="font-display text-xl font-bold text-plum-800">Your deep links</h2>
             <p className="mt-1 text-sm text-plum-500">
-              {results.length === 0 ? 'Results appear here.' : `${ready.length} of ${results.length} ready.`}
+              {results.length === 0
+                ? 'Results appear here.'
+                : `${ready.length} of ${results.length} ready${inProgress ? ` · ${inProgress} in progress` : ''}.`}
             </p>
           </div>
           {ready.length > 1 ? <CopyButton text={allDeepLinks} label={`Copy all ${ready.length}`} primary /> : null}
@@ -220,13 +375,8 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
                           {r.asin}
                         </span>
                       ) : null}
-                      {r.asin ? (
-                        r.inCatalog ? (
-                          <span className="text-sage-600">in catalog</span>
-                        ) : (
-                          <span>not in catalog yet · link still works</span>
-                        )
-                      ) : null}
+                      {r.asin ? <StatusPill status={r.status} /> : null}
+                      {r.asin && r.inCatalog ? <span className="text-sage-600">in catalog</span> : null}
                       {r.resolvedUrl ? <span>short link expanded</span> : null}
                     </div>
                     <div className="mt-0.5 truncate text-[11px] text-plum-300">{r.input}</div>
@@ -235,17 +385,41 @@ export default function LinkGenerator({ adminKey }: { adminKey: string }) {
 
                 {r.error ? (
                   <p className="mt-3 rounded-2xl bg-coral-50 px-3 py-2 text-xs text-coral-700">{r.error}</p>
-                ) : (
+                ) : null}
+                {r.note ? <p className="mt-3 text-xs text-plum-500">{r.note}</p> : null}
+
+                {r.asin ? (
                   <div className="mt-3 space-y-2">
-                    {r.deepLink ? (
-                      <LinkRow label="Deep link · opens the Amazon app" value={r.deepLink} primary />
-                    ) : null}
                     {r.urlgeniusLink ? (
-                      <LinkRow label="URLgenius link · the deep link redirects here" value={r.urlgeniusLink} />
+                      <LinkRow label="Amazon deep link · opens the Amazon app" value={r.urlgeniusLink} primary />
+                    ) : !SETTLED.has(r.status) ? (
+                      <div className="rounded-2xl border border-dashed border-coral-200 bg-coral-50/50 px-3 py-2 text-xs text-coral-700">
+                        {STATUS_LABEL[r.status]} Your Amazon deep link will appear here.
+                      </div>
+                    ) : null}
+                    {r.goLink ? (
+                      <LinkRow label="Site link · momdeals.org/go (sends visitors to the deep link)" value={r.goLink} />
                     ) : null}
                     {r.affiliateUrl ? <LinkRow label="Plain Amazon affiliate link" value={r.affiliateUrl} /> : null}
                   </div>
-                )}
+                ) : null}
+
+                {r.willPublish ? (
+                  <div className="mt-3 rounded-2xl bg-plum-50/60 px-3 py-2 text-xs text-plum-700">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-plum-400">Post</div>
+                    {r.post ? (
+                      <div className="mt-0.5">
+                        <span className="font-semibold">{r.post.title}</span>
+                        {r.postReused ? <span className="text-plum-500"> · existing post reused</span> : null}
+                        {r.socialStatus ? <div className="mt-0.5 text-plum-600">Social: {r.socialStatus}</div> : null}
+                      </div>
+                    ) : !SETTLED.has(r.status) ? (
+                      <div className="mt-0.5 text-plum-500">{STATUS_LABEL[r.status]}</div>
+                    ) : (
+                      <div className="mt-0.5 text-plum-500">No post was created.</div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
