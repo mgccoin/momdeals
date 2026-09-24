@@ -5,6 +5,10 @@ const nextConfig = {
   // Build a self-contained server bundle for Docker / Fly.io
   output: 'standalone',
   images: {
+    // Smaller payloads → faster LCP. AVIF first, WebP fallback.
+    formats: ['image/avif', 'image/webp'],
+    // Optimized variants are immutable per source URL → cache them for a day.
+    minimumCacheTTL: 86400,
     remotePatterns: [
       { protocol: 'https', hostname: 'm.media-amazon.com' },
       { protocol: 'https', hostname: 'images-na.ssl-images-amazon.com' },

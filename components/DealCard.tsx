@@ -7,6 +7,7 @@ import { AdDisclosure } from './AdDisclosure';
 import { DealBadges } from './DealBadge';
 import { DealLink } from './DealLink';
 import { PriceTag } from './PriceTag';
+import { SocialProof } from './StarRating';
 
 const FALLBACK_IMG =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600"><rect width="600" height="600" fill="%23F4EFF6"/><text x="300" y="320" font-size="60" font-family="serif" text-anchor="middle" fill="%23A684B8">MomDeals</text></svg>';
@@ -14,9 +15,12 @@ const FALLBACK_IMG =
 export function DealCard({
   item,
   layout = 'row',
+  priority = false,
 }: {
   item: FeedItem;
   layout?: 'row' | 'tile' | 'feature';
+  /** Set on the first/above-the-fold card so its image preloads (better LCP). */
+  priority?: boolean;
 }) {
   const img = item.ap_image || item.image_url || FALLBACK_IMG;
   const asin = item.product_asin || item.ap_asin || '';
@@ -39,6 +43,10 @@ export function DealCard({
     />
   );
 
+  const Social = (
+    <SocialProof rating={item.ap_rating} reviewCount={item.ap_review_count} />
+  );
+
   // ── Feature layout (large hero card on home page)
   if (layout === 'feature') {
     return (
@@ -50,6 +58,7 @@ export function DealCard({
             fill
             sizes="(min-width: 1024px) 1100px, 100vw"
             className="object-cover transition duration-500 group-hover:scale-[1.03]"
+            priority={priority}
             unoptimized={img.startsWith('data:')}
           />
           <div className="absolute left-4 top-4 flex flex-wrap gap-1.5">{Badges}</div>
@@ -65,6 +74,7 @@ export function DealCard({
               </h2>
             </Link>
             <p className="mt-3 line-clamp-3 text-plum-600">{item.excerpt}</p>
+            <div className="mt-3">{Social}</div>
           </div>
           <div className="flex flex-col items-stretch gap-2 md:items-end">
             {PriceBlock}
@@ -100,6 +110,7 @@ export function DealCard({
             fill
             sizes="(min-width: 1024px) 280px, (min-width: 640px) 33vw, 50vw"
             className="object-contain p-4 transition duration-500 group-hover:scale-[1.04]"
+            priority={priority}
             unoptimized={img.startsWith('data:')}
           />
           <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1.5">{Badges}</div>
@@ -108,6 +119,7 @@ export function DealCard({
           <Link href={postHref} className="font-display text-base font-bold leading-snug text-plum-800 group-hover:text-coral-600 line-clamp-3">
             {item.title}
           </Link>
+          {Social}
           <div className="mt-auto space-y-2.5">
             {PriceBlock}
             {hasDeal && (
@@ -138,6 +150,7 @@ export function DealCard({
           fill
           sizes="(min-width: 640px) 200px, 112px"
           className="object-contain p-2 transition duration-500 group-hover:scale-[1.04] sm:p-4"
+          priority={priority}
           unoptimized={img.startsWith('data:')}
         />
       </Link>
@@ -152,6 +165,8 @@ export function DealCard({
           </h3>
         </Link>
         <p className="mt-1.5 line-clamp-2 text-sm text-plum-600 sm:line-clamp-3">{item.excerpt}</p>
+
+        <div className="mt-2">{Social}</div>
 
         {tags.length > 0 && (
           <div className="mt-2 hidden flex-wrap gap-1.5 sm:flex">

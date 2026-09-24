@@ -50,6 +50,26 @@ export async function fetchProducts(params: {
   return apiGet<Paginated<Product>>(`/api/public/products?${qs}`);
 }
 
+/**
+ * Top products for a "Best of" roundup. Matches any of the pipe-separated
+ * keywords, ranked by deal_score then review_count. NOT capped per category.
+ */
+export async function fetchRoundup(params: {
+  keywords: string[];
+  exclude?: string[];
+  limit?: number;
+}): Promise<{ products: Product[]; total: number }> {
+  const qs = new URLSearchParams();
+  qs.set('q', params.keywords.join('|'));
+  if (params.exclude && params.exclude.length) qs.set('x', params.exclude.join('|'));
+  qs.set('limit', String(params.limit ?? 10));
+  try {
+    return await apiGet<{ products: Product[]; total: number }>(`/api/public/roundup?${qs}`);
+  } catch (e) {
+    return { products: [], total: 0 };
+  }
+}
+
 export async function fetchProduct(asin: string): Promise<
   (Product & { post: { id: string; title: string; excerpt: string; image_url: string; created_at: string } | null }) | null
 > {

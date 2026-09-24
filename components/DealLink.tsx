@@ -1,6 +1,26 @@
+'use client';
+
 import type { ReactNode } from 'react';
 
 const TAG = process.env.NEXT_PUBLIC_AMAZON_TAG || 'momsdeals07-20';
+
+/** Non-blocking click ping to our same-origin tracker (powers admin analytics). */
+function trackClick(asin: string) {
+  try {
+    const payload = JSON.stringify({
+      asin,
+      source: typeof window !== 'undefined' ? window.location.pathname : '',
+    });
+    const blob = new Blob([payload], { type: 'text/plain' });
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      navigator.sendBeacon('/api/track', blob);
+    } else {
+      fetch('/api/track', { method: 'POST', body: payload, keepalive: true }).catch(() => {});
+    }
+  } catch {
+    /* analytics must never break the click */
+  }
+}
 
 // Amazon.com's own seller ID — pins the link to Amazon-fulfilled stock and
 // matches the URL pattern Amazon's iOS apple-app-site-association is keyed
@@ -30,13 +50,19 @@ function amazonAffiliateUrl(asin: string): string {
 
 type Props = {
   asin: string;
-  /** Unused — kept for API compatibility. */
+  /** URLgenius deep link (urlgeni.us). When present we use it so the tap opens
+   *  the Amazon Shopping app — app conversion is far higher than mobile web. */
   shortLink?: string | null;
   /** Unused — kept for API compatibility. */
   affiliateLink?: string | null;
   className?: string;
   children: ReactNode;
 };
+
+/** A URLgenius deep link that hands off to the Amazon app on tap. */
+function isAppDeepLink(url?: string | null): url is string {
+  return !!url && /^https?:\/\//i.test(url) && /(urlgeni\.us|geni\.us)/i.test(url);
+}
 
 /**
  * "Get this deal" / "Get it on Amazon" button.
@@ -58,16 +84,20 @@ type Props = {
  */
 export function DealLink({
   asin,
+  shortLink,
   className,
   children,
 }: Props) {
-  const href = amazonAffiliateUrl(asin);
+  // Prefer the URLgenius deep link (opens the Amazon app) and fall back to the
+  // canonical affiliate URL when no deep link exists for this product.
+  const href = isAppDeepLink(shortLink) ? shortLink : amazonAffiliateUrl(asin);
   return (
     <a
       href={href}
       target="_blank"
       rel="nofollow sponsored noopener noreferrer"
       className={className}
+      onClick={() => trackClick(asin)}
     >
       {children}
     </a>

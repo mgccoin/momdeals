@@ -3,6 +3,7 @@ import { fetchFeed, fetchProducts } from '@/lib/api';
 import { SITE_URL } from '@/lib/config';
 import { postPath } from '@/lib/slug';
 import { CATEGORIES } from '@/lib/categories';
+import { ROUNDUPS } from '@/lib/roundups';
 
 const MAX_PAGES = 40; // safety cap (≈ a few thousand URLs)
 
@@ -41,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`,         lastModified: now, changeFrequency: 'hourly', priority: 1.0 },
     { url: `${SITE_URL}/deals`,    lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
+    { url: `${SITE_URL}/best`,     lastModified: now, changeFrequency: 'daily',  priority: 0.9 },
     { url: `${SITE_URL}/products`, lastModified: now, changeFrequency: 'daily',  priority: 0.8 },
     { url: `${SITE_URL}/about`,    lastModified: now, changeFrequency: 'monthly', priority: 0.3 },
   ];
@@ -50,6 +52,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: now,
     changeFrequency: 'daily',
     priority: 0.85,
+  }));
+
+  const roundupPages: MetadataRoute.Sitemap = ROUNDUPS.map((r) => ({
+    url: `${SITE_URL}/best/${r.slug}`,
+    lastModified: now,
+    changeFrequency: 'daily',
+    priority: 0.88,
   }));
 
   const [feed, products] = await Promise.all([allFeedItems(), allProducts()]);
@@ -70,5 +79,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-  return [...staticPages, ...categoryPages, ...postPages, ...productPages];
+  return [...staticPages, ...categoryPages, ...roundupPages, ...postPages, ...productPages];
 }

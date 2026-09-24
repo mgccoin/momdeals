@@ -6,6 +6,7 @@ import { AdDisclosure } from '@/components/AdDisclosure';
 import { DealBadges } from '@/components/DealBadge';
 import { DealLink } from '@/components/DealLink';
 import { PriceTag } from '@/components/PriceTag';
+import { StarRating } from '@/components/StarRating';
 import { fetchProduct } from '@/lib/api';
 import { REVALIDATE_SECONDS, SITE_URL, SITE_NAME } from '@/lib/config';
 import { discountPercent, formatDate, formatPrice, parsePrice } from '@/lib/format';
@@ -70,8 +71,10 @@ export default async function ProductPage({ params }: { params: { asin: string }
   const off = discountPercent(product.price, product.list_price);
   const priceNum = parsePrice(product.price);
 
-  // JSON-LD Product schema
-  const productSchema = {
+  // JSON-LD Product schema (Product + Offer + AggregateRating).
+  // The rating is only emitted when we have a real Amazon star rating AND it's
+  // shown on the page (below) — keeping the markup consistent with visible content.
+  const productSchema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.title,
@@ -89,6 +92,15 @@ export default async function ProductPage({ params }: { params: { asin: string }
         }
       : undefined,
   };
+  if (product.rating > 0 && product.review_count > 0) {
+    productSchema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: product.rating.toFixed(1),
+      reviewCount: product.review_count,
+      bestRating: '5',
+      worstRating: '1',
+    };
+  }
 
   return (
     <>
@@ -134,6 +146,14 @@ export default async function ProductPage({ params }: { params: { asin: string }
             <h1 className="mt-3 font-display text-3xl font-black leading-tight text-plum-800 md:text-4xl">
               {product.title}
             </h1>
+
+            {product.rating > 0 && (
+              <StarRating
+                rating={product.rating}
+                reviewCount={product.review_count}
+                className="mt-3"
+              />
+            )}
 
             <AdDisclosure variant="full" className="mt-4" />
 

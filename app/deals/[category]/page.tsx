@@ -88,8 +88,8 @@ export default async function CategoryPage({
 
       {items.length > 0 ? (
         <div className="mt-8 grid gap-5">
-          {items.map((item) => (
-            <DealCard key={item.id} item={item} />
+          {items.slice(0, 60).map((item, i) => (
+            <DealCard key={item.id} item={item} priority={i === 0} />
           ))}
         </div>
       ) : (

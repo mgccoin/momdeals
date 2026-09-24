@@ -54,7 +54,7 @@ export default async function HomePage({
               eyebrow="Top pick right now"
               title="The deal of the moment"
             />
-            <DealCard item={feature} layout="feature" />
+            <DealCard item={feature} layout="feature" priority />
           </div>
         )}
 

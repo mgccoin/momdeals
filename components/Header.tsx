@@ -4,6 +4,7 @@ import { SITE_NAME } from '@/lib/config';
 const NAV = [
   { href: '/',         label: 'Home' },
   { href: '/deals',    label: 'Deals' },
+  { href: '/best',     label: 'Best Of' },
   { href: '/products', label: 'Products' },
   { href: '/about',    label: 'About' },
 ];

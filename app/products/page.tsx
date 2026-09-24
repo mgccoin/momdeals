@@ -84,8 +84,8 @@ export default async function ProductsPage({
 
       {products.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {products.map(p => (
-            <ProductTile key={p.id} product={p} />
+          {products.map((p, i) => (
+            <ProductTile key={p.id} product={p} priority={i < 4} />
           ))}
         </div>
       )}

@@ -11,6 +11,9 @@ export type Product = {
   deal_text: string;
   deal_score: number;
   review_count: number;
+  rating: number;
+  promo_code?: string;
+  promo_discount?: string;
   affiliate_link: string;
   short_link: string;
   created_at: string;
@@ -37,6 +40,10 @@ export type FeedItem = {
   ap_has_deal: number | null;
   ap_deal_text: string | null;
   ap_deal_score: number | null;
+  ap_review_count: number | null;
+  ap_rating: number | null;
+  ap_promo_code: string | null;
+  ap_promo_discount: string | null;
   ap_short_link: string | null;
   ap_affiliate_link: string | null;
 };

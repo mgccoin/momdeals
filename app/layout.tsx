@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Fraunces, Inter } from 'next/font/google';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { RegistryBanner } from '@/components/RegistryBanner';
 import { SITE_NAME, SITE_TAGLINE, SITE_URL } from '@/lib/config';
 import './globals.css';
 
@@ -108,6 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="flex min-h-screen flex-col">
         <Header />
+        <RegistryBanner />
         <main className="flex-1">{children}</main>
         <Footer />
       </body>

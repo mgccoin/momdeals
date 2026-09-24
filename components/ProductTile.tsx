@@ -5,11 +5,12 @@ import { AdDisclosure } from './AdDisclosure';
 import { DealBadges } from './DealBadge';
 import { DealLink } from './DealLink';
 import { PriceTag } from './PriceTag';
+import { SocialProof } from './StarRating';
 
 const FALLBACK_IMG =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600"><rect width="600" height="600" fill="%23F4EFF6"/><text x="300" y="320" font-size="60" font-family="serif" text-anchor="middle" fill="%23A684B8">MomDeals</text></svg>';
 
-export function ProductTile({ product }: { product: Product }) {
+export function ProductTile({ product, priority = false }: { product: Product; priority?: boolean }) {
   const img = product.image_url || FALLBACK_IMG;
   const detailHref = `/product/${product.asin}`;
 
@@ -22,6 +23,7 @@ export function ProductTile({ product }: { product: Product }) {
           fill
           sizes="(min-width: 1024px) 280px, (min-width: 640px) 33vw, 50vw"
           className="object-contain p-4 transition duration-500 group-hover:scale-[1.04]"
+          priority={priority}
           unoptimized={img.startsWith('data:')}
         />
         <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1.5">
@@ -41,6 +43,7 @@ export function ProductTile({ product }: { product: Product }) {
         >
           {product.title}
         </Link>
+        <SocialProof rating={product.rating} reviewCount={product.review_count} />
         <div className="mt-auto space-y-2.5">
           <PriceTag price={product.price} listPrice={product.list_price} />
           {product.asin && (

@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { SITE_NAME } from '@/lib/config';
+import { ROUNDUPS, roundupHeading } from '@/lib/roundups';
 
 export function Footer() {
   const year = new Date().getFullYear();
+  const topGuides = ROUNDUPS.slice(0, 5);
   return (
     <footer className="mt-20 border-t border-plum-100/70 bg-white/60">
-      <div className="container-site grid gap-10 py-12 md:grid-cols-4">
+      <div className="container-site grid gap-10 py-12 md:grid-cols-5">
         <div className="md:col-span-2">
           <div className="font-display text-2xl font-black text-plum-800">
             Mom<span className="text-coral-500">Deals</span>
@@ -20,7 +22,20 @@ export function Footer() {
           <ul className="mt-3 space-y-2 text-sm">
             <li><Link href="/"         className="text-plum-700 hover:text-coral-600">All deals</Link></li>
             <li><Link href="/deals"    className="text-plum-700 hover:text-coral-600">Today's deals</Link></li>
+            <li><Link href="/best"     className="text-plum-700 hover:text-coral-600">Best Of guides</Link></li>
             <li><Link href="/products" className="text-plum-700 hover:text-coral-600">All products</Link></li>
+          </ul>
+        </div>
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-plum-500">Buying Guides</div>
+          <ul className="mt-3 space-y-2 text-sm">
+            {topGuides.map((r) => (
+              <li key={r.slug}>
+                <Link href={`/best/${r.slug}`} className="text-plum-700 hover:text-coral-600">
+                  {roundupHeading(r, year)}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
         <div>
