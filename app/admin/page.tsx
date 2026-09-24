@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { API_BASE } from '@/lib/config';
 import { formatPrice } from '@/lib/format';
 import PromoManager from '@/components/PromoManager';
+import LinkGenerator from '@/components/LinkGenerator';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -65,7 +66,8 @@ export default async function AdminPage({
   const expected = (process.env.ADMIN_KEY || '').trim();
   const key = (searchParams.key || '').trim();
   const authed = Boolean(expected) && key === expected;
-  const tab = searchParams.tab === 'promo' ? 'promo' : 'analytics';
+  const tab =
+    searchParams.tab === 'promo' ? 'promo' : searchParams.tab === 'links' ? 'links' : 'analytics';
 
   if (!authed) {
     return (
@@ -105,6 +107,14 @@ export default async function AdminPage({
         >
           Promo Codes
         </Link>
+        <Link
+          href={`/admin?key=${encodeURIComponent(key)}&tab=links`}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+            tab === 'links' ? 'bg-coral-500 text-white' : 'text-plum-500 hover:text-plum-800'
+          }`}
+        >
+          Link Generator
+        </Link>
       </div>
       <Link href="/" className="btn-ghost">← Back to site</Link>
     </div>
@@ -119,6 +129,22 @@ export default async function AdminPage({
           <h1 className="mt-1 font-display text-4xl font-black text-plum-800">Promo codes</h1>
         </header>
         <PromoManager adminKey={key} />
+      </section>
+    );
+  }
+
+  if (tab === 'links') {
+    return (
+      <section className="container-site py-12">
+        {tabs}
+        <header className="mb-6">
+          <p className="text-xs font-bold uppercase tracking-wider text-coral-500">Private · owner only</p>
+          <h1 className="mt-1 font-display text-4xl font-black text-plum-800">Link generator</h1>
+          <p className="mt-2 text-sm text-plum-500">
+            Paste any Amazon link and get the MomDeals deep link that opens the Amazon app with your tag.
+          </p>
+        </header>
+        <LinkGenerator adminKey={key} />
       </section>
     );
   }
